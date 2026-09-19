@@ -1,0 +1,21 @@
+{
+  "name": "hushroom",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Temporary private chat rooms with no permanent message storage",
+  "scripts": {
+    "install:all": "npm install && npm install --prefix client",
+    "dev": "concurrently \"node server/index.js\" \"npm run dev --prefix client\"",
+    "start": "node server/index.js",
+    "build": "npm run build --prefix client"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.2.1",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
