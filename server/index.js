@@ -7,18 +7,32 @@ const rateLimit = require('express-rate-limit');
 const { Server } = require('socket.io');
 
 const PORT = process.env.PORT || 3001;
+const DEFAULT_CLIENT_ORIGINS = [
+  'https://hushroom-chi.vercel.app',
+  'https://hushroom-3dh5yghb3-umarnaushad.vercel.app'
+];
 const ROOM_TTL_MS = 60 * 60 * 1000;
 const MAX_MESSAGE_LENGTH = 1000;
 const MAX_NAME_LENGTH = 24;
 const ROOM_CODE_PATTERN = /^[A-Z2-9]{6}$/;
-const clientOrigin = process.env.CLIENT_ORIGIN?.replace(/\/$/, '') || true;
+const configuredOrigins = [process.env.ALLOWED_ORIGINS, process.env.CLIENT_ORIGIN]
+  .filter(Boolean)
+  .flatMap((origins) => origins.split(','))
+  .map((origin) => origin.trim().replace(/\/$/, ''))
+  .filter(Boolean);
+const allowedOrigins = new Set([...DEFAULT_CLIENT_ORIGINS, ...configuredOrigins]);
+
+function corsOrigin(origin, callback) {
+  callback(null, !origin || allowedOrigins.has(origin.replace(/\/$/, '')));
+}
 
 // Volatile by design: this Map is the only place active names and messages live.
 // Nothing here is written to disk, a database, a cookie, or browser storage.
 const rooms = new Map();
 
 const app = express();
-app.use(cors({ origin: clientOrigin }));
+const corsOptions = { origin: corsOrigin };
+app.use(cors(corsOptions));
 app.use(express.json({ limit: '10kb' }));
 app.use(rateLimit({ windowMs: 60 * 1000, limit: 120, standardHeaders: true, legacyHeaders: false }));
 
@@ -28,7 +42,7 @@ app.get('/health', (_request, response) => {
 
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: clientOrigin, methods: ['GET', 'POST'] }
+  cors: { ...corsOptions, methods: ['GET', 'POST'] }
 });
 
 function cleanText(value, maxLength) {

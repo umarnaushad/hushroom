@@ -4,7 +4,8 @@ import { io } from 'socket.io-client';
 import { ArrowLeft, Check, Copy, LogOut, Menu, MessageCircle, Moon, Send, ShieldCheck, Sun, X } from 'lucide-react';
 import './styles.css';
 
-const socket = io(import.meta.env.VITE_SERVER_URL || undefined, { autoConnect: true });
+const serverUrl = (import.meta.env.VITE_SERVER_URL || 'https://hushroom-x913.onrender.com').replace(/\/$/, '');
+const socket = io(serverUrl, { autoConnect: true });
 
 function formatTime(timestamp) {
   return new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(timestamp);

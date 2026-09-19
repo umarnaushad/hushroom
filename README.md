@@ -50,7 +50,7 @@ Create a private repository on GitHub and upload this entire project, including 
 1. Open [render.com](https://render.com), create an account, and connect GitHub.
 2. Select **New > Blueprint** and choose the repository.
 3. Render reads `render.yaml` and creates `hushroom-server`.
-4. Set the `CLIENT_ORIGIN` environment variable temporarily to `*`, deploy, and wait for the service to become live.
+4. Set the `ALLOWED_ORIGINS` environment variable temporarily to the frontend origin, deploy, and wait for the service to become live.
 5. Copy the backend URL. It will look like:
 
 	`https://hushroom-server.onrender.com`
@@ -76,7 +76,7 @@ Create a private repository on GitHub and upload this entire project, including 
 
 Return to Render, open the `hushroom-server` service, and change:
 
-`CLIENT_ORIGIN=https://hushroom-abc123.vercel.app`
+`ALLOWED_ORIGINS=https://hushroom-abc123.vercel.app`
 
 Use your actual Vercel URL and do not add a trailing slash. Redeploy the backend after saving the variable. This allows browser requests and Socket.IO connections only from your frontend URL.
 

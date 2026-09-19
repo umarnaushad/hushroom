@@ -7,5 +7,5 @@ services:
     startCommand: npm start
     healthCheckPath: /health
     envVars:
-      - key: CLIENT_ORIGIN
-        sync: false
+      - key: ALLOWED_ORIGINS
+        value: https://hushroom-chi.vercel.app,https://hushroom-3dh5yghb3-umarnaushad.vercel.app
