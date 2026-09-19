@@ -21,6 +21,7 @@ const configuredOrigins = [process.env.ALLOWED_ORIGINS, process.env.CLIENT_ORIGI
   .map((origin) => origin.trim().replace(/\/$/, ''))
   .filter(Boolean);
 const allowedOrigins = new Set([...DEFAULT_CLIENT_ORIGINS, ...configuredOrigins]);
+const clientDistPath = path.join(__dirname, '..', 'client', 'dist');
 
 function corsOrigin(origin, callback) {
   callback(null, !origin || allowedOrigins.has(origin.replace(/\/$/, '')));
@@ -38,6 +39,15 @@ app.use(rateLimit({ windowMs: 60 * 1000, limit: 120, standardHeaders: true, lega
 
 app.get('/health', (_request, response) => {
   response.json({ status: 'ok', temporaryRooms: rooms.size });
+});
+
+app.use(express.static(clientDistPath));
+app.get('/', (_request, response) => {
+  response.sendFile(path.join(clientDistPath, 'index.html'));
+});
+app.get(/^\/(?!socket\.io(?:\/|$)).*/, (request, response, next) => {
+  if (request.path === '/health') return next();
+  response.sendFile(path.join(clientDistPath, 'index.html'));
 });
 
 const server = http.createServer(app);
@@ -172,4 +182,4 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000).unref();
 
-server.listen(PORT, () => console.log(`Hushroom server listening on port ${PORT}`));
+server.listen(PORT, '0.0.0.0', () => console.log(`Hushroom server listening on port ${PORT}`));
