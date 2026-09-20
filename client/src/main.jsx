@@ -103,7 +103,7 @@ function App() {
   const typingNames = typing;
 
   useEffect(() => {
-    if (!room) return undefined;
+    if (!room || messages.length === 0) return undefined;
     const messageList = document.querySelector('.message-list');
     if (!messageList) return undefined;
 
@@ -145,7 +145,7 @@ function App() {
         messageList.removeEventListener('dragstart', blockMessageDrag);
       watermark.remove();
     };
-  }, [room, name]);
+  }, [room, name, messages.length]);
 
   useEffect(() => {
     if (!room) return undefined;
