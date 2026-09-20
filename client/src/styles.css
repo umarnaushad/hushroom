@@ -34,7 +34,8 @@ input:focus { border-color: var(--accent); }
 .join-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .join-row input { letter-spacing: .16em; font-weight: 700; text-transform: uppercase; }
 .error { color: #ff9d9d; font-size: 13px; margin: 14px 0 0; }
-.privacy-line { color: var(--muted); display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 12px; margin-top: 22px; }
+.privacy-line { color: var(--muted); display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; font-size: 12px; margin-top: 22px; }
+.privacy-line::after { content: 'Screenshots and screen recordings cannot be completely prevented on the web.'; flex-basis: 100%; margin-top: 2px; color: var(--muted); font-size: 11px; line-height: 1.45; }
 .privacy-line svg { color: var(--accent); flex: 0 0 auto; }
 .chat-app { height: 100vh; min-height: 500px; background: var(--bg); color: var(--text); display: flex; overflow: hidden; }
 .room-sidebar { background: var(--panel); border-right: 1px solid var(--line); width: 285px; padding: 24px 20px; display: flex; flex-direction: column; flex-shrink: 0; }
@@ -55,7 +56,7 @@ input:focus { border-color: var(--accent); }
 .online-dot { width: 7px; height: 7px; background: #9bda5b; border-radius: 50%; display: inline-block; box-shadow: 0 0 0 3px #9bda5b18; }
 .user .online-dot { margin-left: auto; margin-right: 4px; }
 .sidebar-bottom { margin-top: auto; }
-.privacy-box { display: flex; gap: 9px; color: var(--muted); font-size: 11px; line-height: 1.4; padding: 14px 2px 17px; }
+.privacy-box { display: flex; flex-wrap: wrap; gap: 9px; color: var(--muted); font-size: 11px; line-height: 1.4; padding: 14px 2px 17px; }
 .privacy-box svg { color: var(--accent); flex: 0 0 auto; }
 .leave-button { color: var(--muted); background: transparent; display: flex; gap: 9px; align-items: center; padding: 10px 2px; font-size: 13px; }
 .leave-button:hover { color: #ff9d9d; }
@@ -65,16 +66,19 @@ input:focus { border-color: var(--accent); }
 .online-label { color: var(--muted); font-size: 11px; display: flex; gap: 8px; align-items: center; }
 .menu-button, .close-details { display: none; }
 .message-list { flex: 1; overflow-y: auto; padding: 32px max(22px, calc((100% - 820px) / 2)); }
+.message-list { position: relative; }
 .empty-chat { height: 100%; display: grid; align-content: center; justify-items: center; color: var(--muted); text-align: center; }
 .empty-icon { width: 52px; height: 52px; border: 1px solid var(--line); background: var(--panel); border-radius: 16px; display: grid; place-items: center; color: var(--accent); }
 .empty-chat h3 { color: var(--text); margin: 18px 0 7px; font-size: 18px; }
 .empty-chat p { font-size: 13px; margin: 0; }
-.message { max-width: 75%; margin-bottom: 19px; animation: appear .2s ease-out; }
+.message { max-width: 75%; margin-bottom: 19px; animation: appear .2s ease-out; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .message.mine { margin-left: auto; }
 .message-meta { gap: 9px; margin-bottom: 6px; }
 .message-meta strong { font-size: 12px; }
 .message-meta time { color: var(--muted); font-size: 10px; }
 .bubble { width: fit-content; max-width: 100%; background: var(--bubble); border-radius: 4px 14px 14px 14px; padding: 11px 14px; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+.privacy-watermark { position: absolute; left: 50%; z-index: 2; pointer-events: none; user-select: none; -webkit-user-select: none; color: color-mix(in srgb, var(--text) 18%, transparent); font: 600 11px 'Space Grotesk', sans-serif; letter-spacing: .08em; white-space: nowrap; transition: top 1.2s ease, transform 1.2s ease; }
+.privacy-box::after { content: 'Web protection discourages casual capture; it cannot stop another device.'; flex-basis: 100%; margin-top: 1px; padding-left: 27px; }
 .mine .message-meta { justify-content: flex-end; }
 .mine .bubble { margin-left: auto; background: var(--mine); color: var(--mine-text); border-radius: 14px 4px 14px 14px; }
 .composer-wrap { max-width: 870px; width: 100%; margin: 0 auto; padding: 0 22px 21px; }

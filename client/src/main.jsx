@@ -70,14 +70,82 @@ function App() {
   }
 
   async function copyCode() {
-    const shareUrl = new URL(window.location.href);
-    shareUrl.search = '';
-    shareUrl.searchParams.set('room', room);
-    await navigator.clipboard?.writeText(shareUrl.toString());
-    setCopied(true); setTimeout(() => setCopied(false), 1600);
+    const textToCopy = room;
+    let copiedSuccessfully = false;
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(textToCopy);
+        copiedSuccessfully = true;
+      }
+    } catch {
+      copiedSuccessfully = false;
+    }
+
+    if (!copiedSuccessfully) {
+      const fallbackInput = document.createElement('textarea');
+      fallbackInput.value = textToCopy;
+      fallbackInput.setAttribute('readonly', '');
+      fallbackInput.style.position = 'fixed';
+      fallbackInput.style.opacity = '0';
+      document.body.appendChild(fallbackInput);
+      fallbackInput.select();
+      copiedSuccessfully = document.execCommand('copy');
+      fallbackInput.remove();
+    }
+
+    if (copiedSuccessfully) {
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1600);
+    }
   }
 
   const typingNames = typing;
+
+  useEffect(() => {
+    if (!room) return undefined;
+    const messageList = document.querySelector('.message-list');
+    if (!messageList) return undefined;
+
+    const watermark = document.createElement('div');
+    const positions = [
+      ['12%', '14deg'], ['72%', '-9deg'], ['34%', '7deg'], ['82%', '16deg'], ['56%', '-13deg']
+    ];
+    let positionIndex = 0;
+    watermark.className = 'privacy-watermark';
+    watermark.textContent = `${name.trim() || 'Guest'} | ${room}`;
+    messageList.appendChild(watermark);
+
+    const moveWatermark = () => {
+      const [top, rotation] = positions[positionIndex++ % positions.length];
+      watermark.style.top = top;
+      watermark.style.transform = `translate(-50%, -50%) rotate(${rotation})`;
+    };
+    const blockMessageMenu = (event) => {
+      if (event.target.closest('.message, .bubble')) event.preventDefault();
+    };
+    const blockMessageCopy = (event) => {
+      if (event.target.closest('.message, .bubble')) event.preventDefault();
+    };
+      const blockMessageDrag = (event) => {
+        if (event.target.closest('.message, .bubble')) event.preventDefault();
+      };
+
+    moveWatermark();
+    const watermarkTimer = window.setInterval(moveWatermark, 12000);
+    messageList.addEventListener('contextmenu', blockMessageMenu);
+    messageList.addEventListener('copy', blockMessageCopy);
+    messageList.addEventListener('cut', blockMessageCopy);
+      messageList.addEventListener('dragstart', blockMessageDrag);
+    return () => {
+      window.clearInterval(watermarkTimer);
+      messageList.removeEventListener('contextmenu', blockMessageMenu);
+      messageList.removeEventListener('copy', blockMessageCopy);
+      messageList.removeEventListener('cut', blockMessageCopy);
+        messageList.removeEventListener('dragstart', blockMessageDrag);
+      watermark.remove();
+    };
+  }, [room, name]);
 
   if (!room) return <main className={`landing ${dark ? 'theme-dark' : 'theme-light'}`}><button className="theme-toggle" onClick={() => setDark(!dark)} aria-label="Toggle theme">{dark ? <Sun size={18} /> : <Moon size={18} />}</button><section className="welcome"><div className="brand-mark"><MessageCircle size={25} /></div><p className="eyebrow">PRIVATE, TEMPORARY, SIMPLE</p><h1>Meet in a room.<br /><em>Leave no trace.</em></h1><p className="intro">A quiet place for conversations with people you trust. No accounts, no history, no noise.</p><div className="join-card"><label htmlFor="name">Your display name</label><input id="name" value={name} onChange={(event) => setName(event.target.value)} maxLength="24" placeholder="e.g. Alex" autoComplete="off" /><button className="primary-button" onClick={() => join('create')} disabled={!name.trim()}><MessageCircle size={18} /> Create a new room</button><div className="divider"><span>or join an existing room</span></div><div className="join-row"><input value={code} onChange={(event) => setCode(event.target.value.toUpperCase().replace(/[^A-Z2-9]/g, '').slice(0, 6))} placeholder="ROOM CODE" maxLength="6" aria-label="Room code" /><button className="secondary-button" onClick={() => join('join')} disabled={!name.trim() || code.length !== 6}>Join room <ArrowLeft size={16} /></button></div>{error && <p className="error">{error}</p>}</div><div className="privacy-line"><ShieldCheck size={16} /><span>Rooms and messages live in memory only. Closing the room erases them.</span></div></section></main>;
 
