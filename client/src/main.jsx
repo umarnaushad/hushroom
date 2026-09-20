@@ -24,6 +24,7 @@ function App() {
   const [dark, setDark] = useState(true);
   const [showDetails, setShowDetails] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [captureObscured, setCaptureObscured] = useState(false);
   const bottomRef = useRef(null);
   const typingTimeout = useRef(null);
 
@@ -40,6 +41,25 @@ function App() {
   }, []);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+
+  useEffect(() => {
+    const updateCaptureState = () => setCaptureObscured(document.visibilityState !== 'visible');
+    const handleBeforePrint = () => setCaptureObscured(true);
+    const handleAfterPrint = () => setCaptureObscured(false);
+    document.addEventListener('visibilitychange', updateCaptureState);
+    window.addEventListener('beforeprint', handleBeforePrint);
+    window.addEventListener('afterprint', handleAfterPrint);
+    return () => {
+      document.removeEventListener('visibilitychange', updateCaptureState);
+      window.removeEventListener('beforeprint', handleBeforePrint);
+      window.removeEventListener('afterprint', handleAfterPrint);
+    };
+  }, []);
+
+  useEffect(() => {
+    const messageList = document.querySelector('.message-list');
+    if (messageList) messageList.classList.toggle('capture-obscured', captureObscured);
+  }, [captureObscured, room]);
 
   function join(action) {
     const cleanName = name.trim();
