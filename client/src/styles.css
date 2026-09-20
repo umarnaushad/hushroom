@@ -78,6 +78,7 @@ input:focus { border-color: var(--accent); }
 .message-meta time { color: var(--muted); font-size: 10px; }
 .bubble { width: fit-content; max-width: 100%; background: var(--bubble); border-radius: 4px 14px 14px 14px; padding: 11px 14px; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
 .privacy-watermark { position: absolute; left: 50%; z-index: 2; pointer-events: none; user-select: none; -webkit-user-select: none; color: color-mix(in srgb, var(--text) 18%, transparent); font: 600 11px 'Space Grotesk', sans-serif; letter-spacing: .08em; white-space: nowrap; transition: top 1.2s ease, transform 1.2s ease; }
+.message-list:has(.empty-chat) .privacy-watermark { display: none; }
 .privacy-box::after { content: 'Web protection discourages casual capture; it cannot stop another device.'; flex-basis: 100%; margin-top: 1px; padding-left: 27px; }
 .mine .message-meta { justify-content: flex-end; }
 .mine .bubble { margin-left: auto; background: var(--mine); color: var(--mine-text); border-radius: 14px 4px 14px 14px; }
