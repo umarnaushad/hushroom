@@ -147,6 +147,29 @@ function App() {
     };
   }, [room, name]);
 
+  useEffect(() => {
+    if (!room) return undefined;
+    const composerInput = document.querySelector('.composer input');
+    if (!composerInput) return undefined;
+
+    const normalizeRoomPaste = (event) => {
+      const pastedText = event.clipboardData?.getData('text')?.trim();
+      if (!pastedText) return;
+      try {
+        const pastedUrl = new URL(pastedText);
+        const pastedRoom = pastedUrl.searchParams.get('room')?.toUpperCase().replace(/[^A-Z2-9]/g, '').slice(0, 6);
+        if (pastedRoom !== room) return;
+        event.preventDefault();
+        setDraft(pastedRoom);
+      } catch {
+        // Ordinary message text is left unchanged.
+      }
+    };
+
+    composerInput.addEventListener('paste', normalizeRoomPaste);
+    return () => composerInput.removeEventListener('paste', normalizeRoomPaste);
+  }, [room]);
+
   if (!room) return <main className={`landing ${dark ? 'theme-dark' : 'theme-light'}`}><button className="theme-toggle" onClick={() => setDark(!dark)} aria-label="Toggle theme">{dark ? <Sun size={18} /> : <Moon size={18} />}</button><section className="welcome"><div className="brand-mark"><MessageCircle size={25} /></div><p className="eyebrow">PRIVATE, TEMPORARY, SIMPLE</p><h1>Meet in a room.<br /><em>Leave no trace.</em></h1><p className="intro">A quiet place for conversations with people you trust. No accounts, no history, no noise.</p><div className="join-card"><label htmlFor="name">Your display name</label><input id="name" value={name} onChange={(event) => setName(event.target.value)} maxLength="24" placeholder="e.g. Alex" autoComplete="off" /><button className="primary-button" onClick={() => join('create')} disabled={!name.trim()}><MessageCircle size={18} /> Create a new room</button><div className="divider"><span>or join an existing room</span></div><div className="join-row"><input value={code} onChange={(event) => setCode(event.target.value.toUpperCase().replace(/[^A-Z2-9]/g, '').slice(0, 6))} placeholder="ROOM CODE" maxLength="6" aria-label="Room code" /><button className="secondary-button" onClick={() => join('join')} disabled={!name.trim() || code.length !== 6}>Join room <ArrowLeft size={16} /></button></div>{error && <p className="error">{error}</p>}</div><div className="privacy-line"><ShieldCheck size={16} /><span>Rooms and messages live in memory only. Closing the room erases them.</span></div></section></main>;
 
   return <main className={`chat-app ${dark ? 'theme-dark' : 'theme-light'}`}><aside className={`room-sidebar ${showDetails ? 'is-open' : ''}`}><div className="sidebar-top"><div className="brand"><span className="brand-mark small"><MessageCircle size={18} /></span><strong>hushroom</strong></div><button className="icon-button close-details" onClick={() => setShowDetails(false)} aria-label="Close room details"><X size={19} /></button></div><div className="room-card"><span className="overline">CURRENT ROOM</span><div className="room-code">{room}<button className="copy-button" onClick={copyCode} aria-label="Copy room code">{copied ? <Check size={16} /> : <Copy size={16} />}</button></div><p>Share this code with your friends.</p></div><div className="online-heading"><span>People here</span><span className="count">{users.length}</span></div><div className="user-list">{users.map((user) => <div className="user" key={user.id}><span className="avatar">{user.name.slice(0, 1).toUpperCase()}</span><span>{user.name}{user.id === socket.id && <small>you</small>}</span><i className="online-dot" /></div>)}</div><div className="sidebar-bottom"><div className="privacy-box"><ShieldCheck size={18} /><span>Nothing is saved. This room disappears after everyone leaves.</span></div><button className="leave-button" onClick={leave}><LogOut size={17} /> Leave room</button></div></aside><section className="conversation"><header className="chat-header"><button className="icon-button menu-button" onClick={() => setShowDetails(true)} aria-label="Show room details"><Menu size={21} /></button><div><span className="online-label"><i className="online-dot" />Live room</span><h2>Room {room}</h2></div><button className="icon-button theme-chat-toggle" onClick={() => setDark(!dark)} aria-label="Toggle theme">{dark ? <Sun size={19} /> : <Moon size={19} />}</button></header><div className="message-list">{messages.length === 0 ? <div className="empty-chat"><span className="empty-icon"><MessageCircle size={25} /></span><h3>This room is ready</h3><p>Send the first message and start the conversation.</p></div> : messages.map((message, index) => <article className={`message ${message.userId === socket.id ? 'mine' : ''}`} key={message.id || index}><div className="message-meta"><strong>{message.userId === socket.id ? 'You' : message.name}</strong><time>{formatTime(message.sentAt)}</time></div><div className="bubble">{message.text}</div></article>)}<div ref={bottomRef} /></div><div className="composer-wrap">{typingNames.length > 0 && <div className="typing"><span className="typing-dots"><i /><i /><i /></span>{typingNames.join(', ')} {typingNames.length === 1 ? 'is' : 'are'} typing...</div>}<form className="composer" onSubmit={sendMessage}><button className="composer-action" type="button" aria-label="Add emoji" onClick={() => setDraft((value) => `${value} 🙂`)}><span>☺</span></button><input value={draft} onChange={updateDraft} placeholder="Write a message..." maxLength="1000" aria-label="Message" /><button className="send-button" type="submit" disabled={!draft.trim()} aria-label="Send message"><Send size={18} /></button></form><p className="composer-note">Temporary room · messages are never stored permanently</p></div></section></main>;
