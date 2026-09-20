@@ -124,49 +124,30 @@ function App() {
   const typingNames = typing;
 
   useEffect(() => {
-    if (!room || messages.length === 0) return undefined;
+    if (!room) return undefined;
     const messageList = document.querySelector('.message-list');
     if (!messageList) return undefined;
-
-    const watermark = document.createElement('div');
-    const positions = [
-      ['12%', '14deg'], ['72%', '-9deg'], ['34%', '7deg'], ['82%', '16deg'], ['56%', '-13deg']
-    ];
-    let positionIndex = 0;
-    watermark.className = 'privacy-watermark';
-    watermark.textContent = `${name.trim() || 'Guest'} | ${room}`;
-    messageList.appendChild(watermark);
-
-    const moveWatermark = () => {
-      const [top, rotation] = positions[positionIndex++ % positions.length];
-      watermark.style.top = top;
-      watermark.style.transform = `translate(-50%, -50%) rotate(${rotation})`;
-    };
     const blockMessageMenu = (event) => {
       if (event.target.closest('.message, .bubble')) event.preventDefault();
     };
     const blockMessageCopy = (event) => {
       if (event.target.closest('.message, .bubble')) event.preventDefault();
     };
-      const blockMessageDrag = (event) => {
-        if (event.target.closest('.message, .bubble')) event.preventDefault();
-      };
+    const blockMessageDrag = (event) => {
+      if (event.target.closest('.message, .bubble')) event.preventDefault();
+    };
 
-    moveWatermark();
-    const watermarkTimer = window.setInterval(moveWatermark, 12000);
     messageList.addEventListener('contextmenu', blockMessageMenu);
     messageList.addEventListener('copy', blockMessageCopy);
     messageList.addEventListener('cut', blockMessageCopy);
-      messageList.addEventListener('dragstart', blockMessageDrag);
+    messageList.addEventListener('dragstart', blockMessageDrag);
     return () => {
-      window.clearInterval(watermarkTimer);
       messageList.removeEventListener('contextmenu', blockMessageMenu);
       messageList.removeEventListener('copy', blockMessageCopy);
       messageList.removeEventListener('cut', blockMessageCopy);
-        messageList.removeEventListener('dragstart', blockMessageDrag);
-      watermark.remove();
+      messageList.removeEventListener('dragstart', blockMessageDrag);
     };
-  }, [room, name, messages.length]);
+  }, [room]);
 
   useEffect(() => {
     if (!room) return undefined;
