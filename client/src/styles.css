@@ -14,7 +14,8 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .theme-toggle { position: absolute; top: 24px; right: 28px; }
 .theme-toggle:hover, .icon-button:hover { color: var(--text); background: var(--panel-2); }
 .welcome { width: min(100%, 570px); text-align: center; }
-.brand-mark { display: inline-grid; place-items: center; width: 48px; height: 48px; border-radius: 15px; background: var(--accent); color: var(--accent-text); box-shadow: 0 10px 30px #b5d75c20; }
+.brand-mark { display: inline-grid; place-items: center; width: 48px; height: 48px; border-radius: 15px; background: var(--accent) url('/hushroom-mark.svg') center / cover no-repeat; color: transparent; box-shadow: 0 10px 30px #b5d75c20; }
+.brand-mark svg { display: none; }
 .brand-mark.small { width: 31px; height: 31px; border-radius: 9px; }
 .eyebrow, .overline { color: var(--accent); font-size: 11px; font-weight: 700; letter-spacing: .14em; }
 .eyebrow { margin: 27px 0 18px; }
