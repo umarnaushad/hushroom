@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { io } from 'socket.io-client';
+import 'emoji-picker-element';
 import { ArrowLeft, Check, Copy, LogOut, Menu, MessageCircle, Moon, Send, ShieldCheck, Sun, X } from 'lucide-react';
 import './styles.css';
 
 const serverUrl = (import.meta.env.VITE_SERVER_URL || 'https://hushroom-x9t3.onrender.com').replace(/\/$/, '');
 const socket = io(serverUrl, { autoConnect: true });
-const EMOJIS = '😀 😃 😄 😁 😆 😅 😂 🙂 🙃 😉 😊 😍 🥰 😘 😎 🤔 😐 😑 😶 🙄 😏 😣 😥 😮 🤐 😯 😪 😫 😴 😌 🤓 😛 😜 🤪 😝 🤗 🤭 🤫 🤥 😳 🥳 😇 🤠 😺 😸 😹 😻 😼 🙀 😿 😾 👍 👎 👌 ✌️ 🤞 🤟 🤘 🤙 👋 🙏 👏 🙌 💪 ❤️ 🧡 💛 💚 💙 💜 🖤 🤍 🤎 💔 💯 🔥 ✨ ⭐ 🎉 🎊 ✅ ❌ ⚡ 💡 🚀 🌈 ☀️ 🌙 🍕 🍔 ☕ 🍺 ⚽ 🎮 🎵'.split(' ');
 
 function formatTime(timestamp) {
   return new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(timestamp);
@@ -177,18 +177,11 @@ function App() {
     const emojiToggle = composerWrap?.querySelector('.composer-action');
     if (!composerWrap || !emojiToggle) return undefined;
 
-    const picker = document.createElement('div');
+    const picker = document.createElement('emoji-picker');
     picker.className = 'emoji-picker';
-    picker.setAttribute('role', 'dialog');
-    picker.setAttribute('aria-label', 'Choose an emoji');
-    EMOJIS.forEach((emoji) => {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'emoji-choice';
-      button.textContent = emoji;
-      button.setAttribute('aria-label', `Add ${emoji}`);
-      button.addEventListener('click', () => setDraft((current) => `${current}${emoji}`));
-      picker.appendChild(button);
+    picker.setAttribute('locale', navigator.language || 'en');
+    picker.addEventListener('emoji-click', (event) => {
+      setDraft((current) => `${current}${event.detail.unicode}`);
     });
     composerWrap.appendChild(picker);
 
