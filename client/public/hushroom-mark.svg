@@ -1,9 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
   <title id="title">Hushroom</title>
-  <desc id="desc">Lime chat bubble on a deep navy rounded square</desc>
-  <rect width="64" height="64" rx="18" fill="#10151e"/>
-  <path d="M17 30.5C17 21.94 23.94 15 32.5 15S48 21.94 48 30.5 41.06 46 32.5 46c-2.25 0-4.4-.48-6.34-1.34L19 47l2.17-7.13A15.42 15.42 0 0 1 17 30.5Z" fill="none" stroke="#e2f47b" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="27" cy="30" r="2" fill="#e2f47b"/>
-  <circle cx="33" cy="30" r="2" fill="#e2f47b"/>
-  <circle cx="39" cy="30" r="2" fill="#e2f47b"/>
+  <desc id="desc">Dark chat bubble on a lime rounded square</desc>
+  <rect width="64" height="64" rx="18" fill="#e2f47b"/>
+  <path d="M17 30.5C17 21.94 23.94 15 32.5 15S48 21.94 48 30.5 41.06 46 32.5 46c-2.25 0-4.4-.48-6.34-1.34L19 47l2.17-7.13A15.42 15.42 0 0 1 17 30.5Z" fill="none" stroke="#17200d" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="27" cy="30" r="2" fill="#17200d"/>
+  <circle cx="33" cy="30" r="2" fill="#17200d"/>
+  <circle cx="39" cy="30" r="2" fill="#17200d"/>
 </svg>
