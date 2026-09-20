@@ -6,6 +6,7 @@ import './styles.css';
 
 const serverUrl = (import.meta.env.VITE_SERVER_URL || 'https://hushroom-x9t3.onrender.com').replace(/\/$/, '');
 const socket = io(serverUrl, { autoConnect: true });
+const EMOJIS = '😀 😃 😄 😁 😆 😅 😂 🙂 🙃 😉 😊 😍 🥰 😘 😎 🤔 😐 😑 😶 🙄 😏 😣 😥 😮 🤐 😯 😪 😫 😴 😌 🤓 😛 😜 🤪 😝 🤗 🤭 🤫 🤥 😳 🥳 😇 🤠 😺 😸 😹 😻 😼 🙀 😿 😾 👍 👎 👌 ✌️ 🤞 🤟 🤘 🤙 👋 🙏 👏 🙌 💪 ❤️ 🧡 💛 💚 💙 💜 🖤 🤍 🤎 💔 💯 🔥 ✨ ⭐ 🎉 🎊 ✅ ❌ ⚡ 💡 🚀 🌈 ☀️ 🌙 🍕 🍔 ☕ 🍺 ⚽ 🎮 🎵'.split(' ');
 
 function formatTime(timestamp) {
   return new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(timestamp);
@@ -168,6 +169,44 @@ function App() {
 
     composerInput.addEventListener('paste', normalizeRoomPaste);
     return () => composerInput.removeEventListener('paste', normalizeRoomPaste);
+  }, [room]);
+
+  useEffect(() => {
+    if (!room) return undefined;
+    const composerWrap = document.querySelector('.composer-wrap');
+    const emojiToggle = composerWrap?.querySelector('.composer-action');
+    if (!composerWrap || !emojiToggle) return undefined;
+
+    const picker = document.createElement('div');
+    picker.className = 'emoji-picker';
+    picker.setAttribute('role', 'dialog');
+    picker.setAttribute('aria-label', 'Choose an emoji');
+    EMOJIS.forEach((emoji) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'emoji-choice';
+      button.textContent = emoji;
+      button.setAttribute('aria-label', `Add ${emoji}`);
+      button.addEventListener('click', () => setDraft((current) => `${current}${emoji}`));
+      picker.appendChild(button);
+    });
+    composerWrap.appendChild(picker);
+
+    const togglePicker = (event) => {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      picker.classList.toggle('is-open');
+    };
+    const closePicker = (event) => {
+      if (!composerWrap.contains(event.target)) picker.classList.remove('is-open');
+    };
+    emojiToggle.addEventListener('click', togglePicker);
+    document.addEventListener('click', closePicker);
+    return () => {
+      emojiToggle.removeEventListener('click', togglePicker);
+      document.removeEventListener('click', closePicker);
+      picker.remove();
+    };
   }, [room]);
 
   if (!room) return <main className={`landing ${dark ? 'theme-dark' : 'theme-light'}`}><button className="theme-toggle" onClick={() => setDark(!dark)} aria-label="Toggle theme">{dark ? <Sun size={18} /> : <Moon size={18} />}</button><section className="welcome"><div className="brand-mark"><MessageCircle size={25} /></div><p className="eyebrow">PRIVATE, TEMPORARY, SIMPLE</p><h1>Meet in a room.<br /><em>Leave no trace.</em></h1><p className="intro">A quiet place for conversations with people you trust. No accounts, no history, no noise.</p><div className="join-card"><label htmlFor="name">Your display name</label><input id="name" value={name} onChange={(event) => setName(event.target.value)} maxLength="24" placeholder="e.g. Alex" autoComplete="off" /><button className="primary-button" onClick={() => join('create')} disabled={!name.trim()}><MessageCircle size={18} /> Create a new room</button><div className="divider"><span>or join an existing room</span></div><div className="join-row"><input value={code} onChange={(event) => setCode(event.target.value.toUpperCase().replace(/[^A-Z2-9]/g, '').slice(0, 6))} placeholder="ROOM CODE" maxLength="6" aria-label="Room code" /><button className="secondary-button" onClick={() => join('join')} disabled={!name.trim() || code.length !== 6}>Join room <ArrowLeft size={16} /></button></div>{error && <p className="error">{error}</p>}</div><div className="privacy-line"><ShieldCheck size={16} /><span>Rooms and messages live in memory only. Closing the room erases them.</span></div></section></main>;
