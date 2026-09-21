@@ -11,7 +11,8 @@ const DEFAULT_CLIENT_ORIGINS = [
   'https://hushroom-chi.vercel.app',
   'https://hushroom-3dh5yghb3-umarnaushad.vercel.app'
 ];
-const ROOM_TTL_MS = 60 * 60 * 1000;
+const MESSAGE_TTL_OPTIONS = new Set([10_000, 30_000, 60_000, 5 * 60_000, 60 * 60_000]);
+const ROOM_TTL_OPTIONS = new Set([30 * 60_000, 60 * 60_000, 6 * 60 * 60_000]);
 const MAX_MESSAGE_LENGTH = 1000;
 const MAX_NAME_LENGTH = 24;
 const ROOM_CODE_PATTERN = /^[A-Z2-9]{6}$/;
@@ -74,8 +75,12 @@ function newRoomCode() {
 function getRoom(code) {
   const room = rooms.get(code);
   if (!room) return null;
-  room.lastActive = Date.now();
   return room;
+}
+
+function validDuration(value, options, fallback) {
+  const duration = Number(value);
+  return options.has(duration) ? duration : fallback;
 }
 
 function roomUsers(room) {
@@ -100,21 +105,62 @@ function leaveRoom(socket) {
   if (!room) return;
   room.users.delete(socket.id);
   room.typing.delete(socket.id);
-  room.lastActive = Date.now();
   if (room.users.size === 0) {
-    rooms.delete(code);
+    destroyRoom(code);
     return;
   }
   publishPresence(code);
   io.to(code).emit('typing:update', typingUsers(room));
 }
 
+function destroyRoom(code, notify = false) {
+  const room = rooms.get(code);
+  if (!room) return;
+  clearTimeout(room.expiryTimer);
+  for (const timer of room.messageTimers.values()) clearTimeout(timer);
+  if (notify) io.to(code).emit('room:expired');
+  for (const userId of room.users.keys()) {
+    const member = io.sockets.sockets.get(userId);
+    if (member) {
+      member.leave(code);
+      member.data.roomCode = null;
+    }
+  }
+  rooms.delete(code);
+}
+
+function expireMessage(code, messageId) {
+  const room = rooms.get(code);
+  if (!room) return;
+  const messageIndex = room.messages.findIndex((message) => message.id === messageId);
+  if (messageIndex === -1) return;
+  room.messages.splice(messageIndex, 1);
+  room.messageTimers.delete(messageId);
+  io.to(code).emit('message:expired', messageId);
+}
+
+function expireRoom(code) {
+  if (rooms.has(code)) destroyRoom(code, true);
+}
+
 io.on('connection', (socket) => {
   socket.on('room:create', (payload, callback) => {
     const name = cleanText(payload?.name, MAX_NAME_LENGTH);
     if (!name) return callback({ error: 'Choose a display name first.' });
+    const messageTtlMs = validDuration(payload?.messageTtlMs, MESSAGE_TTL_OPTIONS, 30_000);
+    const roomTtlMs = validDuration(payload?.roomTtlMs, ROOM_TTL_OPTIONS, 60 * 60_000);
     const code = newRoomCode();
-    rooms.set(code, { messages: [], users: new Map(), typing: new Set(), lastActive: Date.now() });
+    const room = {
+      messages: [],
+      users: new Map(),
+      typing: new Set(),
+      messageTimers: new Map(),
+      messageTtlMs,
+      expiresAt: Date.now() + roomTtlMs,
+      expiryTimer: null
+    };
+    room.expiryTimer = setTimeout(() => expireRoom(code), roomTtlMs).unref();
+    rooms.set(code, room);
     joinRoom(socket, code, name, callback);
   });
 
@@ -137,8 +183,9 @@ io.on('connection', (socket) => {
     socket.data.messageTimes.push(now);
     const text = cleanText(payload?.text, MAX_MESSAGE_LENGTH);
     if (!text) return;
-    const message = { id: crypto.randomUUID(), userId: socket.id, name: room.users.get(socket.id).name, text, sentAt: Date.now() };
+    const message = { id: crypto.randomUUID(), userId: socket.id, name: room.users.get(socket.id).name, text, sentAt: Date.now(), expiresAt: Date.now() + room.messageTtlMs };
     room.messages.push(message);
+    room.messageTimers.set(message.id, setTimeout(() => expireMessage(code, message.id), room.messageTtlMs).unref());
     room.typing.delete(socket.id);
     io.to(code).emit('message:new', message);
     io.to(code).emit('typing:update', typingUsers(room));
@@ -162,24 +209,8 @@ function joinRoom(socket, code, name, callback) {
   room.users.set(socket.id, { id: socket.id, name });
   socket.data.roomCode = code;
   socket.join(code);
-  callback({ ok: true, code, messages: room.messages });
+  callback({ ok: true, code, messages: room.messages, messageTtlMs: room.messageTtlMs, expiresAt: room.expiresAt });
   publishPresence(code);
 }
-
-setInterval(() => {
-  const expiry = Date.now() - ROOM_TTL_MS;
-  for (const [code, room] of rooms) {
-    if (room.lastActive >= expiry) continue;
-    io.to(code).emit('room:expired');
-    for (const userId of room.users.keys()) {
-      const member = io.sockets.sockets.get(userId);
-      if (member) {
-        member.leave(code);
-        member.data.roomCode = null;
-      }
-    }
-    rooms.delete(code);
-  }
-}, 5 * 60 * 1000).unref();
 
 server.listen(PORT, '0.0.0.0', () => console.log(`Hushroom server listening on port ${PORT}`));
