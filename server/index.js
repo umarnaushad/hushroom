@@ -85,7 +85,7 @@ function validDuration(value, options, fallback) {
 }
 
 function roomUsers(room) {
-  return [...room.users.values()].map(({ id, name }) => ({ id, name }));
+  return [...room.users.values()].map(({ id, name }) => ({ id, name, isOwner: id === room.ownerId }));
 }
 
 function typingUsers(room) {
@@ -95,6 +95,29 @@ function typingUsers(room) {
 function publishPresence(code) {
   const room = rooms.get(code);
   if (room) io.to(code).emit('presence:update', roomUsers(room));
+}
+
+function isOwner(socket, room) {
+  return room?.ownerId === socket.id;
+}
+
+function emitRoomState(code) {
+  const room = rooms.get(code);
+  if (room) io.to(code).emit('room:state', { locked: room.locked, expiresAt: room.expiresAt, code });
+}
+
+function removeUser(code, userId) {
+  const room = rooms.get(code);
+  const member = io.sockets.sockets.get(userId);
+  if (!room || !member || !room.users.has(userId) || userId === room.ownerId) return;
+  room.users.delete(userId);
+  room.typing.delete(userId);
+  member.leave(code);
+  member.data.roomCode = null;
+  member.emit('room:removed', 'You were removed from this room.');
+  publishPresence(code);
+  io.to(code).emit('typing:update', typingUsers(room));
+  if (room.users.size === 0) destroyRoom(code);
 }
 
 function leaveRoom(socket) {
@@ -166,7 +189,9 @@ io.on('connection', (socket) => {
       messageTimers: new Map(),
       messageTtlMs,
       expiresAt: Date.now() + roomTtlMs,
-      expiryTimer: null
+      expiryTimer: null,
+      ownerId: socket.id,
+      locked: false
     };
     room.expiryTimer = setTimeout(() => expireRoom(code), roomTtlMs).unref();
     rooms.set(code, room);
@@ -178,7 +203,9 @@ io.on('connection', (socket) => {
     const name = cleanText(payload?.name, MAX_NAME_LENGTH);
     if (!ROOM_CODE_PATTERN.test(code)) return callback({ error: 'Enter a valid six-character room code.' });
     if (!name) return callback({ error: 'Choose a display name first.' });
-    if (!rooms.has(code)) return callback({ error: 'That room is no longer active.' });
+    const room = rooms.get(code);
+    if (!room) return callback({ error: 'That room is no longer active.' });
+    if (room.locked) return callback({ error: 'That room is locked.' });
     joinRoom(socket, code, name, callback);
   });
 
@@ -228,12 +255,85 @@ io.on('connection', (socket) => {
     io.to(code).emit('message:reactions', { messageId: message.id, reactions: publicReactions(message.reactions) });
   });
 
+  socket.on('message:edit', (payload) => {
+    const code = socket.data.roomCode;
+    const room = code && getRoom(code);
+    const message = room && findMessage(room, cleanText(payload?.messageId, 80));
+    const text = cleanText(payload?.text, MAX_MESSAGE_LENGTH);
+    if (!room || !message || message.deleted || message.userId !== socket.id || !text) return;
+    message.text = text;
+    message.edited = true;
+    io.to(code).emit('message:updated', { messageId: message.id, text, edited: true });
+  });
+
+  socket.on('message:delete', (payload) => {
+    const code = socket.data.roomCode;
+    const room = code && getRoom(code);
+    const message = room && findMessage(room, cleanText(payload?.messageId, 80));
+    if (!room || !message || message.deleted || message.userId !== socket.id) return;
+    message.deleted = true;
+    message.text = '';
+    message.reactions = {};
+    message.replyTo = null;
+    io.to(code).emit('message:deleted', message.id);
+  });
+
   socket.on('typing:set', (isTyping) => {
     const code = socket.data.roomCode;
     const room = code && getRoom(code);
     if (!room || !room.users.has(socket.id)) return;
     isTyping ? room.typing.add(socket.id) : room.typing.delete(socket.id);
     io.to(code).emit('typing:update', typingUsers(room));
+  });
+
+  socket.on('room:remove-user', (payload) => {
+    const code = socket.data.roomCode;
+    const room = code && getRoom(code);
+    if (isOwner(socket, room)) removeUser(code, cleanText(payload?.userId, 80));
+  });
+
+  socket.on('room:lock', (locked) => {
+    const code = socket.data.roomCode;
+    const room = code && getRoom(code);
+    if (!isOwner(socket, room)) return;
+    room.locked = Boolean(locked);
+    emitRoomState(code);
+  });
+
+  socket.on('room:change-expiration', (duration) => {
+    const code = socket.data.roomCode;
+    const room = code && getRoom(code);
+    if (!isOwner(socket, room)) return;
+    const roomTtlMs = validDuration(duration, ROOM_TTL_OPTIONS, null);
+    if (!roomTtlMs) return;
+    clearTimeout(room.expiryTimer);
+    room.expiresAt = Date.now() + roomTtlMs;
+    room.expiryTimer = setTimeout(() => expireRoom(code), roomTtlMs).unref();
+    emitRoomState(code);
+  });
+
+  socket.on('room:destroy', () => {
+    const code = socket.data.roomCode;
+    const room = code && getRoom(code);
+    if (isOwner(socket, room)) destroyRoom(code, true);
+  });
+
+  socket.on('room:regenerate-invite', () => {
+    const oldCode = socket.data.roomCode;
+    const room = oldCode && getRoom(oldCode);
+    if (!isOwner(socket, room)) return;
+    const newCode = newRoomCode();
+    clearTimeout(room.expiryTimer);
+    const remaining = Math.max(0, room.expiresAt - Date.now());
+    room.expiryTimer = setTimeout(() => expireRoom(newCode), remaining).unref();
+    rooms.delete(oldCode);
+    rooms.set(newCode, room);
+    for (const userId of room.users.keys()) {
+      const member = io.sockets.sockets.get(userId);
+      if (member) { member.leave(oldCode); member.join(newCode); member.data.roomCode = newCode; }
+    }
+    io.to(newCode).emit('room:code-changed', newCode);
+    emitRoomState(newCode);
   });
 
   socket.on('room:leave', () => leaveRoom(socket));
@@ -246,7 +346,7 @@ function joinRoom(socket, code, name, callback) {
   room.users.set(socket.id, { id: socket.id, name });
   socket.data.roomCode = code;
   socket.join(code);
-  callback({ ok: true, code, messages: room.messages, messageTtlMs: room.messageTtlMs, expiresAt: room.expiresAt });
+  callback({ ok: true, code, messages: room.messages, messageTtlMs: room.messageTtlMs, expiresAt: room.expiresAt, locked: room.locked, ownerId: room.ownerId });
   publishPresence(code);
 }
 

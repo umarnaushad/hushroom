@@ -53,6 +53,9 @@ input:focus { border-color: var(--accent); }
 .room-card p { margin: 0; color: var(--muted); font-size: 12px; }
 .room-countdown { color: var(--accent); font-size: 11px; margin-top: 13px; }
 .room-countdown strong { font-family: 'DM Sans', sans-serif; }
+.owner-controls { display: grid; gap: 7px; margin: 14px 0 4px; padding-top: 12px; border-top: 1px solid var(--line); }
+.owner-controls button, .owner-controls select { width: 100%; margin: 0; padding: 8px 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text); text-align: left; font-size: 11px; }
+.owner-controls .danger-control, .message-controls button:last-child { color: #ff9d9d; }
 .copy-button { background: transparent; color: var(--muted); padding: 3px; display: grid; }
 .online-heading { justify-content: space-between; color: var(--muted); font-size: 12px; font-weight: 600; margin: 30px 3px 14px; }
 .count { background: var(--panel-2); padding: 3px 8px; border-radius: 8px; }
@@ -87,6 +90,12 @@ input:focus { border-color: var(--accent); }
 .message-meta strong { font-size: 12px; }
 .message-meta time { color: var(--muted); font-size: 10px; }
 .message-meta .expires-label { color: var(--accent); }
+.edited-label { color: var(--muted); font-size: 10px; }
+.message.is-deleted .bubble { color: var(--muted); font-style: italic; }
+.message-controls { display: flex; gap: 6px; margin-top: 5px; opacity: 0; transition: opacity .15s ease; }
+.message:hover .message-controls, .message:focus-within .message-controls { opacity: 1; }
+.message-controls button, .remove-user { border: 1px solid var(--line); border-radius: 7px; padding: 4px 7px; background: var(--panel); color: var(--muted); font-size: 10px; }
+.remove-user { margin-left: auto; padding: 3px 6px; }
 .reply-preview, .reply-composer-preview { display: flex; gap: 7px; text-align: left; border-left: 3px solid var(--accent); background: var(--panel-2); color: var(--muted); font-size: 11px; line-height: 1.35; }
 .reply-preview { flex-direction: column; width: fit-content; max-width: 100%; margin: 0 0 7px; padding: 7px 10px; border-radius: 4px 8px 8px 4px; cursor: pointer; }
 .reply-preview strong, .reply-composer-preview strong { color: var(--text); font-size: 10px; }

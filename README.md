@@ -10,6 +10,8 @@ Hushroom is a temporary private chat room. It uses React + Vite in the browser a
 - New rooms can be configured to expire after 30 minutes, 1 hour, or 6 hours. The server broadcasts room expiry and rejects joins after destruction.
 - Messages can be configured to disappear after 10 seconds, 30 seconds, 1 minute, 5 minutes, or 1 hour. Expired messages are removed from server memory and broadcast to every participant.
 - Messages support temporary reactions (❤️ 😂 👍 😭 😮) and replies. Reactions are synchronized in real time, and replies keep only a short in-memory preview tied to the active message.
+- Authors can edit or delete their own messages. Deleted messages show a temporary tombstone until their normal expiry.
+- Room owners can remove users, lock or unlock new joins, change the room expiration, rotate the invite code, or destroy the room immediately. These controls are server-authorized and memory-only.
 - The server does not log message contents.
 - User text is length-limited and sanitized before it is broadcast.
 
@@ -27,6 +29,8 @@ npm run dev
 Open `http://localhost:5173` in two browser windows. One person creates a room, chooses the message and room lifetimes, and others enter the six-character code. Use `Ctrl+C` to stop the server and erase the active rooms.
 
 Right-click a message on desktop or press and hold it on mobile to reply. Use the reaction buttons below a message to add, change, or remove a reaction. Both interactions are temporary and disappear with the message.
+
+The room owner controls are shown in the room details sidebar. Removing a participant disconnects their room access immediately; locking affects new joins while existing participants remain connected.
 
 For a production frontend build:
 

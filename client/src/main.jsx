@@ -24,6 +24,8 @@ function formatRemaining(milliseconds) {
 
 function App() {
   const [room, setRoom] = useState(null);
+  const [ownerId, setOwnerId] = useState(null);
+  const [locked, setLocked] = useState(false);
   const [roomExpiresAt, setRoomExpiresAt] = useState(null);
   const [messageTtlMs, setMessageTtlMs] = useState(30_000);
   const [roomTtlMs, setRoomTtlMs] = useState(60 * 60_000);
@@ -35,6 +37,7 @@ function App() {
   const [typing, setTyping] = useState([]);
   const [draft, setDraft] = useState('');
   const [replyTarget, setReplyTarget] = useState(null);
+  const [editingMessage, setEditingMessage] = useState(null);
   const [error, setError] = useState('');
   const [dark, setDark] = useState(true);
   const [showDetails, setShowDetails] = useState(false);
@@ -47,12 +50,17 @@ function App() {
   useEffect(() => {
     const onMessage = (message) => setMessages((current) => [...current, message]);
     const onMessageExpired = (messageId) => { setMessages((current) => current.filter((message) => message.id !== messageId)); setReplyTarget((current) => current?.id === messageId ? null : current); };
+    const onMessageUpdated = ({ messageId, text, edited }) => setMessages((current) => current.map((message) => message.id === messageId ? { ...message, text, edited } : message));
+    const onMessageDeleted = (messageId) => setMessages((current) => current.map((message) => message.id === messageId ? { ...message, deleted: true, text: '', reactions: {}, replyTo: null } : message));
     const onReactions = ({ messageId, reactions }) => setMessages((current) => current.map((message) => message.id === messageId ? { ...message, reactions } : message));
     const onPresence = (nextUsers) => setUsers(nextUsers);
     const onTyping = (names) => setTyping(names);
     const onRoomExpired = () => { setRoom(null); setRoomExpiresAt(null); setMessages([]); setUsers([]); setTyping([]); setDraft(''); setReplyTarget(null); setCode(''); setError('This room expired and can no longer be reopened.'); };
-    socket.on('message:new', onMessage); socket.on('message:expired', onMessageExpired); socket.on('message:reactions', onReactions); socket.on('presence:update', onPresence); socket.on('typing:update', onTyping); socket.on('room:expired', onRoomExpired);
-    return () => { socket.off('message:new', onMessage); socket.off('message:expired', onMessageExpired); socket.off('message:reactions', onReactions); socket.off('presence:update', onPresence); socket.off('typing:update', onTyping); socket.off('room:expired', onRoomExpired); };
+    const onRoomRemoved = (message) => { setRoom(null); setRoomExpiresAt(null); setMessages([]); setUsers([]); setTyping([]); setDraft(''); setReplyTarget(null); setCode(''); setError(message); };
+    const onRoomState = (state) => { setLocked(state.locked); setRoomExpiresAt(state.expiresAt); if (state.code) setRoom(state.code); };
+    const onRoomCodeChanged = (newCode) => setRoom(newCode);
+    socket.on('message:new', onMessage); socket.on('message:expired', onMessageExpired); socket.on('message:updated', onMessageUpdated); socket.on('message:deleted', onMessageDeleted); socket.on('message:reactions', onReactions); socket.on('presence:update', onPresence); socket.on('typing:update', onTyping); socket.on('room:expired', onRoomExpired); socket.on('room:removed', onRoomRemoved); socket.on('room:state', onRoomState); socket.on('room:code-changed', onRoomCodeChanged);
+    return () => { socket.off('message:new', onMessage); socket.off('message:expired', onMessageExpired); socket.off('message:updated', onMessageUpdated); socket.off('message:deleted', onMessageDeleted); socket.off('message:reactions', onReactions); socket.off('presence:update', onPresence); socket.off('typing:update', onTyping); socket.off('room:expired', onRoomExpired); socket.off('room:removed', onRoomRemoved); socket.off('room:state', onRoomState); socket.off('room:code-changed', onRoomCodeChanged); };
   }, []);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
@@ -88,6 +96,56 @@ function App() {
 
   useEffect(() => {
     if (!room) return undefined;
+    const roomCard = document.querySelector('.room-card');
+    const owner = ownerId === socket.id;
+    document.querySelectorAll('.owner-controls').forEach((element) => element.remove());
+    const ownerPanel = document.createElement('div');
+    ownerPanel.className = 'owner-controls';
+    if (owner && roomCard) {
+      ownerPanel.innerHTML = `<span class="overline">ROOM OWNER</span><button type="button" data-owner-action="lock">${locked ? 'Unlock room' : 'Lock room'}</button><label>Expiration<select data-owner-action="expiration"><option value="1800000">30 minutes</option><option value="3600000">1 hour</option><option value="21600000">6 hours</option></select></label><button type="button" data-owner-action="invite">Generate new invite link</button><button type="button" class="danger-control" data-owner-action="destroy">Destroy room now</button>`;
+      ownerPanel.querySelector('[data-owner-action="expiration"]').value = String(roomTtlMs);
+      ownerPanel.addEventListener('click', (event) => {
+        const action = event.target.closest('[data-owner-action]')?.dataset.ownerAction;
+        if (action === 'lock') socket.emit('room:lock', !locked);
+        if (action === 'invite') socket.emit('room:regenerate-invite');
+        if (action === 'destroy') socket.emit('room:destroy');
+      });
+      ownerPanel.querySelector('[data-owner-action="expiration"]').addEventListener('change', (event) => { setRoomTtlMs(Number(event.target.value)); socket.emit('room:change-expiration', Number(event.target.value)); });
+      roomCard.after(ownerPanel);
+    }
+
+    const messageArticles = [...document.querySelectorAll('article.message')];
+    if (owner) {
+      document.querySelectorAll('.user').forEach((userElement, index) => {
+        const user = users[index];
+        if (!user || user.id === socket.id) return;
+        const removeButton = document.createElement('button'); removeButton.type = 'button'; removeButton.className = 'remove-user'; removeButton.dataset.removeUser = user.id; removeButton.textContent = 'Remove';
+        removeButton.addEventListener('click', () => removeUser(user.id));
+        userElement.appendChild(removeButton);
+      });
+    }
+    messageArticles.forEach((article) => {
+      const message = messages.find((item) => article.id === `message-${item.id}`);
+      if (!message) return;
+      const meta = article.querySelector('.message-meta');
+      if (message.edited && meta && !meta.querySelector('.edited-label')) {
+        const edited = document.createElement('span'); edited.className = 'edited-label'; edited.textContent = 'edited'; meta.appendChild(edited);
+      }
+      const bubble = article.querySelector('.bubble');
+      if (bubble && message.deleted) { bubble.textContent = 'Message deleted'; article.classList.add('is-deleted'); }
+      if (message.deleted) article.querySelector('.message-controls')?.remove();
+      if (message.userId === socket.id && !message.deleted && !article.querySelector('.message-controls')) {
+        const controls = document.createElement('div'); controls.className = 'message-controls';
+        controls.innerHTML = '<button type="button" data-message-action="edit">Edit</button><button type="button" data-message-action="delete">Delete</button>';
+        controls.addEventListener('click', (event) => { const action = event.target.closest('[data-message-action]')?.dataset.messageAction; if (action === 'edit') editMessage(message); if (action === 'delete') deleteMessage(message); });
+        article.appendChild(controls);
+      }
+    });
+    return () => ownerPanel.remove();
+  }, [room, ownerId, locked, roomTtlMs, messages, users]);
+
+  useEffect(() => {
+    if (!room) return undefined;
     const composerWrap = document.querySelector('.composer-wrap'); const emojiToggle = composerWrap?.querySelector('.composer-action');
     if (!composerWrap || !emojiToggle) return undefined;
     const picker = document.createElement('emoji-picker'); picker.className = 'emoji-picker'; picker.setAttribute('locale', navigator.language || 'en'); composerWrap.appendChild(picker);
@@ -102,7 +160,7 @@ function App() {
     setError('');
     socket.emit(`room:${action}`, { name: name.trim(), code: code.trim().toUpperCase(), messageTtlMs: action === 'create' ? messageTtlMs : undefined, roomTtlMs: action === 'create' ? roomTtlMs : undefined }, (result) => {
       if (result?.error) return setError(result.error);
-      setRoom(result.code); setMessages(result.messages || []); setMessageTtlMs(result.messageTtlMs); setRoomExpiresAt(result.expiresAt);
+      setRoom(result.code); setOwnerId(result.ownerId); setLocked(result.locked); setMessages(result.messages || []); setMessageTtlMs(result.messageTtlMs); setRoomExpiresAt(result.expiresAt);
     });
   }
 
@@ -112,7 +170,9 @@ function App() {
 
   function sendMessage(event) {
     event.preventDefault(); if (!draft.trim()) return;
-    socket.emit('message:send', { text: draft, replyToId: replyTarget?.id }); setDraft(''); setReplyTarget(null); socket.emit('typing:set', false);
+    if (editingMessage) socket.emit('message:edit', { messageId: editingMessage.id, text: draft });
+    else socket.emit('message:send', { text: draft, replyToId: replyTarget?.id });
+    setDraft(''); setReplyTarget(null); setEditingMessage(null); socket.emit('typing:set', false);
   }
 
   function updateDraft(event) {
@@ -131,6 +191,30 @@ function App() {
 
   function toggleReaction(messageId, emoji) {
     socket.emit('message:reaction', { messageId, emoji });
+  }
+
+  function editMessage(message) {
+    if (message.deleted) return;
+    setEditingMessage(message);
+    setReplyTarget(null);
+    setDraft(message.text);
+    window.setTimeout(() => document.querySelector('.composer input')?.focus(), 0);
+  }
+
+  function deleteMessage(message) {
+    if (!message.deleted) socket.emit('message:delete', { messageId: message.id });
+  }
+
+  function removeUser(userId) {
+    socket.emit('room:remove-user', { userId });
+  }
+
+  function changeExpiration(event) {
+    socket.emit('room:change-expiration', Number(event.target.value));
+  }
+
+  function destroyRoom() {
+    socket.emit('room:destroy');
   }
 
   function startLongPress(message) {
