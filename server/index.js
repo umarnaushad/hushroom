@@ -13,6 +13,7 @@ const DEFAULT_CLIENT_ORIGINS = [
 ];
 const MESSAGE_TTL_OPTIONS = new Set([10_000, 30_000, 60_000, 5 * 60_000, 60 * 60_000]);
 const ROOM_TTL_OPTIONS = new Set([30 * 60_000, 60 * 60_000, 6 * 60 * 60_000]);
+const REACTION_OPTIONS = new Set(['❤️', '😂', '👍', '😭', '😮']);
 const MAX_MESSAGE_LENGTH = 1000;
 const MAX_NAME_LENGTH = 24;
 const ROOM_CODE_PATTERN = /^[A-Z2-9]{6}$/;
@@ -143,6 +144,14 @@ function expireRoom(code) {
   if (rooms.has(code)) destroyRoom(code, true);
 }
 
+function publicReactions(reactions) {
+  return Object.fromEntries(Object.entries(reactions).filter(([, userIds]) => userIds.length > 0));
+}
+
+function findMessage(room, messageId) {
+  return room.messages.find((message) => message.id === messageId);
+}
+
 io.on('connection', (socket) => {
   socket.on('room:create', (payload, callback) => {
     const name = cleanText(payload?.name, MAX_NAME_LENGTH);
@@ -183,12 +192,40 @@ io.on('connection', (socket) => {
     socket.data.messageTimes.push(now);
     const text = cleanText(payload?.text, MAX_MESSAGE_LENGTH);
     if (!text) return;
-    const message = { id: crypto.randomUUID(), userId: socket.id, name: room.users.get(socket.id).name, text, sentAt: Date.now(), expiresAt: Date.now() + room.messageTtlMs };
+    const replyTarget = findMessage(room, cleanText(payload?.replyToId, 80));
+    const message = {
+      id: crypto.randomUUID(),
+      userId: socket.id,
+      name: room.users.get(socket.id).name,
+      text,
+      sentAt: Date.now(),
+      expiresAt: Date.now() + room.messageTtlMs,
+      reactions: {},
+      replyTo: replyTarget ? { id: replyTarget.id, name: replyTarget.name, text: replyTarget.text.slice(0, 140) } : null
+    };
     room.messages.push(message);
     room.messageTimers.set(message.id, setTimeout(() => expireMessage(code, message.id), room.messageTtlMs).unref());
     room.typing.delete(socket.id);
     io.to(code).emit('message:new', message);
     io.to(code).emit('typing:update', typingUsers(room));
+  });
+
+  socket.on('message:reaction', (payload) => {
+    const code = socket.data.roomCode;
+    const room = code && getRoom(code);
+    const message = room && findMessage(room, cleanText(payload?.messageId, 80));
+    const emoji = String(payload?.emoji || '');
+    if (!room || !message || !REACTION_OPTIONS.has(emoji)) return;
+    const previousEmoji = Object.entries(message.reactions).find(([, userIds]) => userIds.includes(socket.id))?.[0];
+    for (const userIds of Object.values(message.reactions)) {
+      const index = userIds.indexOf(socket.id);
+      if (index !== -1) userIds.splice(index, 1);
+    }
+    if (previousEmoji !== emoji) {
+      message.reactions[emoji] = message.reactions[emoji] || [];
+      message.reactions[emoji].push(socket.id);
+    }
+    io.to(code).emit('message:reactions', { messageId: message.id, reactions: publicReactions(message.reactions) });
   });
 
   socket.on('typing:set', (isTyping) => {

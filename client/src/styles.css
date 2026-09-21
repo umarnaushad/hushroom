@@ -87,12 +87,23 @@ input:focus { border-color: var(--accent); }
 .message-meta strong { font-size: 12px; }
 .message-meta time { color: var(--muted); font-size: 10px; }
 .message-meta .expires-label { color: var(--accent); }
+.reply-preview, .reply-composer-preview { display: flex; gap: 7px; text-align: left; border-left: 3px solid var(--accent); background: var(--panel-2); color: var(--muted); font-size: 11px; line-height: 1.35; }
+.reply-preview { flex-direction: column; width: fit-content; max-width: 100%; margin: 0 0 7px; padding: 7px 10px; border-radius: 4px 8px 8px 4px; cursor: pointer; }
+.reply-preview strong, .reply-composer-preview strong { color: var(--text); font-size: 10px; }
+.reply-preview span, .reply-composer-preview span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bubble { width: fit-content; max-width: 100%; background: var(--bubble); border-radius: 4px 14px 14px 14px; padding: 11px 14px; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+.reaction-bar { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
+.reaction { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--line); border-radius: 12px; padding: 3px 7px; background: var(--panel); color: var(--text); font-size: 13px; }
+.reaction:hover, .reaction.is-selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, var(--panel)); }
+.reaction small { color: var(--muted); font-size: 10px; }
 .privacy-box::after { content: 'Web protection discourages casual capture; it cannot stop another device.'; flex-basis: 100%; margin-top: 1px; padding-left: 27px; }
 .mine .message-meta { justify-content: flex-end; }
 .mine .bubble { margin-left: auto; background: var(--mine); color: var(--mine-text); border-radius: 14px 4px 14px 14px; }
 .composer-wrap { max-width: 870px; width: 100%; margin: 0 auto; padding: 0 22px 21px; position: relative; }
 .typing { color: var(--muted); font-size: 11px; height: 22px; display: flex; align-items: center; gap: 7px; }
+.reply-composer-preview { align-items: center; justify-content: space-between; width: 100%; margin: 0 0 8px; padding: 8px 10px; border-radius: 6px; cursor: pointer; }
+.reply-composer-preview > span { display: grid; gap: 2px; min-width: 0; }
+.reply-composer-preview svg { flex: 0 0 auto; color: var(--muted); }
 .typing-dots { display: flex; gap: 2px; }
 .typing-dots i { width: 4px; height: 4px; border-radius: 50%; background: var(--accent); animation: pulse 1s infinite; }
 .typing-dots i:nth-child(2) { animation-delay: .15s; }.typing-dots i:nth-child(3) { animation-delay: .3s; }
