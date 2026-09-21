@@ -12,6 +12,7 @@ Hushroom is a temporary private chat room. It uses React + Vite in the browser a
 - Messages support temporary reactions (❤️ 😂 👍 😭 😮) and replies. Reactions are synchronized in real time, and replies keep only a short in-memory preview tied to the active message.
 - Authors can edit or delete their own messages. Deleted messages show a temporary tombstone until their normal expiry.
 - Room owners can remove users, lock or unlock new joins, change the room expiration, rotate the invite code, or destroy the room immediately. These controls are server-authorized and memory-only.
+- Images and small files are transferred through Socket.IO and held only as bounded in-memory message data. This Render service has no persistent disk or object storage configured, so files disappear on message/room expiry, restart, or redeploy. Allowed types are JPEG, PNG, GIF, WebP, TXT, PDF, and ZIP, up to 5 MB; executable and script-like extensions are rejected.
 - The server does not log message contents.
 - User text is length-limited and sanitized before it is broadcast.
 
@@ -31,6 +32,8 @@ Open `http://localhost:5173` in two browser windows. One person creates a room, 
 Right-click a message on desktop or press and hold it on mobile to reply. Use the reaction buttons below a message to add, change, or remove a reaction. Both interactions are temporary and disappear with the message.
 
 The room owner controls are shown in the room details sidebar. Removing a participant disconnects their room access immediately; locking affects new joins while existing participants remain connected.
+
+To test files, create a room in one browser, attach a supported file with the `+` button, send it, and join the room from another browser. Confirm the receiver can see the temporary attachment, then select a short message lifetime and confirm the attachment disappears when the message expires. Do not treat this as permanent file hosting.
 
 For a production frontend build:
 

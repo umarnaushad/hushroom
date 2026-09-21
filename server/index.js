@@ -14,6 +14,17 @@ const DEFAULT_CLIENT_ORIGINS = [
 const MESSAGE_TTL_OPTIONS = new Set([10_000, 30_000, 60_000, 5 * 60_000, 60 * 60_000]);
 const ROOM_TTL_OPTIONS = new Set([30 * 60_000, 60 * 60_000, 6 * 60 * 60_000]);
 const REACTION_OPTIONS = new Set(['❤️', '😂', '👍', '😭', '😮']);
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const ALLOWED_FILE_TYPES = new Map([
+  ['image/jpeg', ['.jpg', '.jpeg']],
+  ['image/png', ['.png']],
+  ['image/gif', ['.gif']],
+  ['image/webp', ['.webp']],
+  ['text/plain', ['.txt']],
+  ['application/pdf', ['.pdf']],
+  ['application/zip', ['.zip']]
+]);
+const BLOCKED_FILE_EXTENSIONS = new Set(['.exe', '.bat', '.cmd', '.com', '.msi', '.scr', '.js', '.mjs', '.cjs', '.ps1', '.sh', '.dll', '.so', '.dylib', '.jar', '.hta', '.vbs', '.vbe', '.wsf', '.docm', '.xlsm', '.pptm']);
 const MAX_MESSAGE_LENGTH = 1000;
 const MAX_NAME_LENGTH = 24;
 const ROOM_CODE_PATTERN = /^[A-Z2-9]{6}$/;
@@ -54,7 +65,8 @@ app.get(/^\/(?!socket\.io(?:\/|$)).*/, (request, response, next) => {
 
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { ...corsOptions, methods: ['GET', 'POST'] }
+  cors: { ...corsOptions, methods: ['GET', 'POST'] },
+  maxHttpBufferSize: 8 * 1024 * 1024
 });
 
 function cleanText(value, maxLength) {
@@ -63,6 +75,25 @@ function cleanText(value, maxLength) {
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
     .trim()
     .slice(0, maxLength);
+}
+
+function safeFileName(value) {
+  const name = String(value || 'attachment').replace(/[\\/:*?"<>|\u0000-\u001F]/g, '_').trim().slice(0, 120);
+  return name || 'attachment';
+}
+
+function validateAttachment(input) {
+  if (!input || typeof input !== 'object') return null;
+  const type = String(input.type || '').toLowerCase();
+  const name = safeFileName(input.name);
+  const extension = name.includes('.') ? `.${name.split('.').pop().toLowerCase()}` : '';
+  const encoded = String(input.data || '');
+  const raw = encoded.replace(/^data:[^;]+;base64,/, '');
+  const size = Number(input.size);
+  if (!ALLOWED_FILE_TYPES.has(type) || BLOCKED_FILE_EXTENSIONS.has(extension) || !ALLOWED_FILE_TYPES.get(type).includes(extension) || !Number.isInteger(size) || size < 1 || size > MAX_FILE_SIZE || !/^[A-Za-z0-9+/]*={0,2}$/.test(raw) || raw.length > Math.ceil(MAX_FILE_SIZE / 3) * 4 + 4) return null;
+  const buffer = Buffer.from(raw, 'base64');
+  if (buffer.length !== size || buffer.length > MAX_FILE_SIZE) return null;
+  return { name, type, size, data: buffer.toString('base64') };
 }
 
 function newRoomCode() {
@@ -218,13 +249,15 @@ io.on('connection', (socket) => {
     if (socket.data.messageTimes.length >= 20) return;
     socket.data.messageTimes.push(now);
     const text = cleanText(payload?.text, MAX_MESSAGE_LENGTH);
-    if (!text) return;
+    const attachment = validateAttachment(payload?.attachment);
+    if (!text && !attachment) return;
     const replyTarget = findMessage(room, cleanText(payload?.replyToId, 80));
     const message = {
       id: crypto.randomUUID(),
       userId: socket.id,
       name: room.users.get(socket.id).name,
       text,
+      attachment,
       sentAt: Date.now(),
       expiresAt: Date.now() + room.messageTtlMs,
       reactions: {},
@@ -275,6 +308,7 @@ io.on('connection', (socket) => {
     message.text = '';
     message.reactions = {};
     message.replyTo = null;
+    message.attachment = null;
     io.to(code).emit('message:deleted', message.id);
   });
 

@@ -36,6 +36,7 @@ function App() {
   const [users, setUsers] = useState([]);
   const [typing, setTyping] = useState([]);
   const [draft, setDraft] = useState('');
+  const [selectedFile, setSelectedFile] = useState(null);
   const [replyTarget, setReplyTarget] = useState(null);
   const [editingMessage, setEditingMessage] = useState(null);
   const [error, setError] = useState('');
@@ -51,7 +52,7 @@ function App() {
     const onMessage = (message) => setMessages((current) => [...current, message]);
     const onMessageExpired = (messageId) => { setMessages((current) => current.filter((message) => message.id !== messageId)); setReplyTarget((current) => current?.id === messageId ? null : current); };
     const onMessageUpdated = ({ messageId, text, edited }) => setMessages((current) => current.map((message) => message.id === messageId ? { ...message, text, edited } : message));
-    const onMessageDeleted = (messageId) => setMessages((current) => current.map((message) => message.id === messageId ? { ...message, deleted: true, text: '', reactions: {}, replyTo: null } : message));
+    const onMessageDeleted = (messageId) => setMessages((current) => current.map((message) => message.id === messageId ? { ...message, deleted: true, text: '', reactions: {}, replyTo: null, attachment: null } : message));
     const onReactions = ({ messageId, reactions }) => setMessages((current) => current.map((message) => message.id === messageId ? { ...message, reactions } : message));
     const onPresence = (nextUsers) => setUsers(nextUsers);
     const onTyping = (names) => setTyping(names);
@@ -96,6 +97,30 @@ function App() {
 
   useEffect(() => {
     if (!room) return undefined;
+    const composer = document.querySelector('.composer');
+    const emojiButton = composer?.querySelector('.composer-action');
+    if (!composer || !emojiButton || composer.querySelector('.file-attach-button')) return undefined;
+    const allowedTypes = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'text/plain', 'application/pdf', 'application/zip']);
+    const blockedExtensions = /\.(exe|bat|cmd|com|msi|scr|js|mjs|cjs|ps1|sh|dll|so|dylib|jar|hta|vbs|vbe|wsf|docm|xlsm|pptm)$/i;
+    const attachButton = document.createElement('button'); attachButton.type = 'button'; attachButton.className = 'composer-action file-attach-button'; attachButton.textContent = '+'; attachButton.setAttribute('aria-label', 'Attach temporary image or file');
+    const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/jpeg,image/png,image/gif,image/webp,text/plain,application/pdf,application/zip'; input.hidden = true;
+    const selection = document.createElement('span'); selection.className = 'file-selection'; composer.prepend(attachButton); composer.appendChild(input); composer.parentElement.prepend(selection);
+    const updateSelection = () => { selection.textContent = selectedFile ? `Attached: ${selectedFile.name}` : ''; selection.classList.toggle('has-file', Boolean(selectedFile)); };
+    attachButton.addEventListener('click', () => input.click());
+    input.addEventListener('change', () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      if (file.size > 5 * 1024 * 1024 || !allowedTypes.has(file.type) || blockedExtensions.test(file.name)) { setError('That file type or size is not allowed. Maximum size is 5 MB.'); input.value = ''; return; }
+      const reader = new FileReader();
+      reader.onload = () => { setSelectedFile({ name: file.name, type: file.type, size: file.size, data: String(reader.result) }); setError(''); };
+      reader.readAsDataURL(file);
+    });
+    updateSelection();
+    return () => { attachButton.remove(); input.remove(); selection.remove(); };
+  }, [room, selectedFile]);
+
+  useEffect(() => {
+    if (!room) return undefined;
     const roomCard = document.querySelector('.room-card');
     const owner = ownerId === socket.id;
     document.querySelectorAll('.owner-controls').forEach((element) => element.remove());
@@ -116,6 +141,7 @@ function App() {
 
     const messageArticles = [...document.querySelectorAll('article.message')];
     if (owner) {
+      document.querySelectorAll('[data-remove-user]').forEach((element) => element.remove());
       document.querySelectorAll('.user').forEach((userElement, index) => {
         const user = users[index];
         if (!user || user.id === socket.id) return;
@@ -133,6 +159,13 @@ function App() {
       }
       const bubble = article.querySelector('.bubble');
       if (bubble && message.deleted) { bubble.textContent = 'Message deleted'; article.classList.add('is-deleted'); }
+      if (message.attachment && !article.querySelector('.attachment')) {
+        const attachment = document.createElement('div'); attachment.className = 'attachment';
+        const source = `data:${message.attachment.type};base64,${message.attachment.data}`;
+        if (message.attachment.type.startsWith('image/')) { const image = document.createElement('img'); image.src = source; image.alt = message.attachment.name; attachment.appendChild(image); }
+        const link = document.createElement('a'); link.href = source; link.download = message.attachment.name; link.textContent = `${message.attachment.name} (${Math.ceil(message.attachment.size / 1024)} KB)`; attachment.appendChild(link);
+        article.appendChild(attachment);
+      }
       if (message.deleted) article.querySelector('.message-controls')?.remove();
       if (message.userId === socket.id && !message.deleted && !article.querySelector('.message-controls')) {
         const controls = document.createElement('div'); controls.className = 'message-controls';
@@ -156,6 +189,11 @@ function App() {
     return () => { emojiToggle.removeEventListener('click', togglePicker); document.removeEventListener('click', closePicker); picker.remove(); };
   }, [room]);
 
+  useEffect(() => {
+    const sendButton = document.querySelector('.send-button');
+    if (sendButton) sendButton.disabled = !draft.trim() && !selectedFile;
+  }, [draft, selectedFile, room]);
+
   function join(action) {
     setError('');
     socket.emit(`room:${action}`, { name: name.trim(), code: code.trim().toUpperCase(), messageTtlMs: action === 'create' ? messageTtlMs : undefined, roomTtlMs: action === 'create' ? roomTtlMs : undefined }, (result) => {
@@ -169,10 +207,10 @@ function App() {
   }
 
   function sendMessage(event) {
-    event.preventDefault(); if (!draft.trim()) return;
+    event.preventDefault(); if (!draft.trim() && !selectedFile) return;
     if (editingMessage) socket.emit('message:edit', { messageId: editingMessage.id, text: draft });
-    else socket.emit('message:send', { text: draft, replyToId: replyTarget?.id });
-    setDraft(''); setReplyTarget(null); setEditingMessage(null); socket.emit('typing:set', false);
+    else socket.emit('message:send', { text: draft, attachment: selectedFile, replyToId: replyTarget?.id });
+    setDraft(''); setSelectedFile(null); setReplyTarget(null); setEditingMessage(null); socket.emit('typing:set', false);
   }
 
   function updateDraft(event) {

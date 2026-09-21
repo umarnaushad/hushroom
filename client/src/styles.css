@@ -101,6 +101,9 @@ input:focus { border-color: var(--accent); }
 .reply-preview strong, .reply-composer-preview strong { color: var(--text); font-size: 10px; }
 .reply-preview span, .reply-composer-preview span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bubble { width: fit-content; max-width: 100%; background: var(--bubble); border-radius: 4px 14px 14px 14px; padding: 11px 14px; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+.attachment { display: grid; gap: 6px; margin-top: 8px; padding: 8px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); font-size: 11px; }
+.attachment img { display: block; width: min(280px, 100%); max-height: 220px; object-fit: contain; border-radius: 6px; }
+.attachment a { color: var(--accent); overflow-wrap: anywhere; }
 .reaction-bar { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
 .reaction { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--line); border-radius: 12px; padding: 3px 7px; background: var(--panel); color: var(--text); font-size: 13px; }
 .reaction:hover, .reaction.is-selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, var(--panel)); }
@@ -117,6 +120,8 @@ input:focus { border-color: var(--accent); }
 .typing-dots i { width: 4px; height: 4px; border-radius: 50%; background: var(--accent); animation: pulse 1s infinite; }
 .typing-dots i:nth-child(2) { animation-delay: .15s; }.typing-dots i:nth-child(3) { animation-delay: .3s; }
 .composer { display: flex; align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 5px; }
+.file-selection { display: block; min-height: 0; color: var(--accent); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-selection.has-file { min-height: 18px; margin-bottom: 5px; }
 .composer input { border: 0; background: transparent; padding: 12px 8px; }
 .composer-action, .send-button { display: grid; place-items: center; flex: 0 0 auto; width: 38px; height: 38px; border-radius: 10px; }
 .composer-action { background: transparent; color: var(--muted); font-size: 21px; }.composer-action:hover { color: var(--accent); }
